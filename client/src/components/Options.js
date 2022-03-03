@@ -43,7 +43,7 @@ const useStyles = makeStyles((theme) => ({
     border: "2px solid black",
   },
 }));
-
+//children => App.js에서 OPtion안에 notification이 들어가 있기 떄문에 props로 받는다.
 const Options = ({ children }) => {
   const { me, callAccepted, name, setName, callEnded, leaveCall, callUser } =
     useContext(SocketContext);
