@@ -9,8 +9,8 @@ const App = () => {
   return (
     <Router>
       <Switch>
-        {/* <Route path="/" exact component={Main} /> */}
-        <Route path="/video" exact component={Videoplayer} />
+        <Route path="/" exact component={Main} />
+        <Route path="/video/:roomName" exact component={Videoplayer} />
       </Switch>
     </Router>
   );
