@@ -21,8 +21,12 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.17.1",
+    "http": "0.0.1-security",
+    "localtunnel": "^2.0.2",
     "nodemon": "^2.0.7",
     "serve": "^11.3.2",
-    "socket.io": "^4.0.0"
-  }
+    "socket.io": "^4.0.0",
+    "ws": "^8.5.0"
+  },
+  "type": "module"
 }
