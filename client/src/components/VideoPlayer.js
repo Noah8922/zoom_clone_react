@@ -32,6 +32,7 @@ const Videoplayer = (props) => {
   let peopleInRoom = 1;
   let peerstreamArr;
   let myStream;
+  let remoteSocket;
 
   const socket = io("http://localhost:5000"); //Server adress
 
@@ -40,12 +41,13 @@ const Videoplayer = (props) => {
     console.log("joinRoom 보냄 client 1");
   }, []);
 
-  socket.on("acceptJoin", async (userObjArr) => {
+  socket.on("acceptJoin", async (userObjArr, roomName, NewsocketId) => {
+    console.log(NewsocketId);
     console.log("acceoptJoin 받음 client4");
     console.log("카메라랑 마이크 먼저 가져오기");
     await getMedia();
-    makeConnection();
-    socket.emit("request", roomName, userObjArr);
+    makeConnection(userObjArr, roomName);
+    socket.emit("request", roomName, userObjArr, NewsocketId);
     console.log("reqeust를 보내면 8");
 
     // console.log("how many people in here", userObjArr);
@@ -78,12 +80,19 @@ const Videoplayer = (props) => {
   });
 
   //새로운 인원이 브라우저에 들어오면 일어나는 일
-  socket.on("welcome", async (userObjArr) => {
+  socket.on("welcome", async (userObjArr, NewsocketId, roomName) => {
+    console.log(userObjArr, NewsocketId, roomName);
     console.log("Welcome이 실행되었음, 누군가 들어왔다 offer를 만들자");
     const offer = await myPeerConnection.createOffer();
     myPeerConnection.setLocalDescription(offer);
-    socket.emit("offer", offer, roomName, userObjArr);
-    console.log("offer를 서버로 보냄 clinet", offer);
+    console.log(offer);
+    socket.emit("offer", offer, userObjArr[0].socketId, NewsocketId, roomName);
+    console.log(
+      "offer를 서버로 보냄 clinet",
+      userObjArr[0].socketId,
+      NewsocketId,
+      roomName
+    );
 
     // const length = userObjArr.length;
 
@@ -104,7 +113,8 @@ const Videoplayer = (props) => {
     // }
   });
 
-  socket.on("offer", async (offer, roomName, userObjArr) => {
+  socket.on("offer", async (offer, NewsocketId, roomName) => {
+    console.log(offer, NewsocketId);
     console.log(offer, "서버로부터 Offer를 받음 client ");
     await myPeerConnection.setRemoteDescription(offer);
     console.log("받은 offer를 현브라우저에 원격으로 저장하고");
@@ -115,20 +125,10 @@ const Videoplayer = (props) => {
     console.log("만든 Answer를 현브라우저에 저장하고");
     socket.emit("answer", answer, roomName);
     console.log("asnwer을 보낸다");
-    // try {
-    //   const myPeerConnection = makeConnection(remoteSocketId, remoteNickname);
-    //   await myPeerConnection.setRemoteDescription(offer);
-    //   const answer = await myPeerConnection.createAnswer();
-    //   // console.log("this is answer", answer);
-    //   await myPeerConnection.setLocalDescription(answer);
-    //   socket.emit("answer", answer, remoteSocketId);
-    // } catch (error) {
-    //   console.log(error);
-    // }
   });
 
   //방 만든 브라우저에서 일어나는 일 (참가한 방에서 보낸 answer을 받아 저장함.)
-  socket.on("answer", async (answer, roomName) => {
+  socket.on("answer", async (answer) => {
     console.log("anwer을 받음 client", answer);
     myPeerConnection.setRemoteDescription(answer);
     console.log("받은 answer을 현브라우저에 저장");
@@ -163,9 +163,10 @@ const Videoplayer = (props) => {
     }
   }
 
-  function makeConnection(roomName, nickname) {
-    myPeerConnection = new RTCPeerConnection(); //각각에 peerConnection을 만든다.
+  function makeConnection(userObjArr, roomName) {
+    myPeerConnection = new RTCPeerConnection();
     console.log("현브라우저에 peerconnection 생성하고 7", myPeerConnection);
+
     // console.log("새로들어온 인원업데이트", remoteSocketId)
     // myPeerConnection = new RTCPeerConnection({
     //   iceServers: [
@@ -180,20 +181,18 @@ const Videoplayer = (props) => {
     //     },
     //   ],
     // });
-    // myPeerConnection.addEventListener("icecandidate", (event) => {
-    //   handleIce(event, roomName);
-    // });
-    // myPeerConnection.addEventListener("track", (data) => {
-    // console.log("this is for addstream ", data);
-    // if (data.track.kind === "audio") {
-    //   peeraudio = data.track;
-    // } else if (data.track.kind === "video") {
-    //   peervideo = data.track;
-    // }
-    // console.log(peeraudio, peervideo);
+    // console.log("현브라우저에 peerconnection 생성하고 7", myPeerConnection);
 
-    // paintPeerFace(data.streams[0], remoteSocketId, remoteNickname);
-    // });
+    myPeerConnection.addEventListener("icecandidate", (event) => {
+      handleIce(event, userObjArr[0].socketId, roomName);
+    });
+
+    myPeerConnection.addEventListener("track", (data) => {
+      console.log(data);
+      paintPeerFace(data.streams[0]);
+      console.log("paintPeerface 함수 실행");
+    });
+
     // // 내 영상을 myPeerConnection에 올림. 위 listner들보다 위에 위치해도 될까?
     // console.log(myStream.getTracks());
     myStream
@@ -215,19 +214,24 @@ const Videoplayer = (props) => {
     return myPeerConnection;
   }
 
-  function handleIce(data, roomName) {
+  function handleIce(data, remotesokcetId, roomName) {
+    console.log("sent candidate");
+    // console.log("I got iceCandidate");
     if (data.candidate) {
-      socket.emit("ice", data.candidate, roomName);
+      socket.emit("ice", data.candidate, remotesokcetId, roomName);
+      console.log("icecandidate를 보냄 client");
     }
   }
 
-  socket.on("ice", async (ice, remoteSocketId) => {
-    // await pcObj[remoteSocketId].addIceCandidate(ice);
+  socket.on("ice", (ice, NewsocketId, remotesokcetId) => {
+    console.log("received candidate");
+    myPeerConnection.addIceCandidate(ice);
   });
 
-  async function paintPeerFace(data, id, remoteNickname, userObjArr) {
+  async function paintPeerFace(data) {
     try {
-      // console.log(data);
+      console.log("paintPeerface 함수 실행");
+      console.log(data);
       // for (let i=0; i<userObjArr.length; i++){
       //   addVideoStream(userVideo[i].current, data);
       //   videoGrid.current.append(userVideo[i].current);

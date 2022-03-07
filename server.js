@@ -30,6 +30,7 @@ wsServer.on("connection", (socket) => {
 
   socket.on("joinRoom", async (roomName, nickname) => {
     console.log("server 연결 완료");
+    console.log("최근 들어온 사람 socketId", socket.id);
     console.log("joinRomm 받음 server 2");
     myRoomName = roomName;
     myNickname = nickname;
@@ -63,7 +64,6 @@ wsServer.on("connection", (socket) => {
       console.log("방을 처음으로 만든 브라우저임");
       roomObjArr.push(targetRoomObj);
     }
-
     // 어떠한 경우든 방에 참여
     targetRoomObj.users.push({
       socketId: socket.id,
@@ -72,30 +72,34 @@ wsServer.on("connection", (socket) => {
 
     targetRoomObj.currentNum++;
     socket.join(roomName);
-    socket.emit("acceptJoin", targetRoomObj.users);
+    socket.emit("acceptJoin", targetRoomObj.users, roomName, socket.id);
     console.log("acceptJoin 보냄 server 3");
+    console.log("최근 들어온사람 socketId", socket.id);
   });
 
-  socket.on("request", (roomName, userObjArr) => {
+  socket.on("request", (roomName, userObjArr, NewsocketId) => {
     console.log("request 받지만 server 9");
-    socket.to(roomName).emit("welcome", userObjArr);
+    socket.to(roomName).emit("welcome", userObjArr, NewsocketId, roomName);
     console.log("새로운 인원이 추가 될 때 Welcome이 실행 됨 ");
   });
 
-  socket.on("ice", (ice, remoteSocketId) => {
-    socket.to(remoteSocketId).emit("ice", ice, socket.id);
-  });
-
-  socket.on("offer", async (offer, roomName, userObjArr) => {
+  socket.on("offer", async (offer, remotesokcetId, NewsocketId, roomName) => {
     console.log("offer를 받음");
-    socket.broadcast.to(roomName).emit("offer", offer, roomName, userObjArr);
+    console.log("방만든 사람 socktId", remotesokcetId);
+    console.log("가장 마지막에 들어온 사람", NewsocketId);
+    socket.to(roomName).emit("offer", offer, NewsocketId, roomName);
     console.log("offer를 보냄");
   });
 
   socket.on("answer", (answer, roomName) => {
     console.log("answer 받음 server");
-    socket.to(roomName).emit("answer", answer, roomName);
+    socket.to(roomName).emit("answer", answer);
     console.log("answer 보냄 server");
+  });
+
+  socket.on("ice", (ice, remotesokcetId, roomName) => {
+    socket.to(roomName).emit("ice", ice, socket.id, remotesokcetId);
+    console.log("IceCandidate 보냄 server");
   });
 
   socket.on("disconnecting", () => {
