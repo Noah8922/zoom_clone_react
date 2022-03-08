@@ -21,10 +21,7 @@ const Videoplayer = (props) => {
   const call = useRef();
   const mystream = useRef();
   const myVideo = useRef();
-  const userVideo1 = useRef();
-  const userVideo2 = useRef();
-  const userVideo3 = useRef();
-  const userVideo4 = useRef();
+  const peerVideo = useRef();
 
   let myPeerConnection;
   let nickname = "noah";
@@ -32,7 +29,6 @@ const Videoplayer = (props) => {
   let peopleInRoom = 1;
   let peerstreamArr;
   let myStream;
-  let remoteSocket;
 
   const socket = io("http://localhost:5000"); //Server adress
 
@@ -188,9 +184,10 @@ const Videoplayer = (props) => {
     });
 
     myPeerConnection.addEventListener("track", (data) => {
-      console.log(data);
-      paintPeerFace(data.streams[0]);
-      console.log("paintPeerface 함수 실행");
+      const peerFace = document.getElementById("peervideo");
+      peerFace.srcObject = data.streams[0];
+      console.log(data.streams[0]);
+      // handleAddStream(event, userObjArr[0].socketId, nickname);
     });
 
     // // 내 영상을 myPeerConnection에 올림. 위 listner들보다 위에 위치해도 될까?
@@ -226,16 +223,29 @@ const Videoplayer = (props) => {
   socket.on("ice", (ice, NewsocketId, remotesokcetId) => {
     console.log("received candidate");
     myPeerConnection.addIceCandidate(ice);
+    console.log("icecandidate 추가 완료");
   });
 
-  async function paintPeerFace(data) {
+  function handleAddStream(event, remoteSocketId, nickname) {
+    console.log("피어 스트림 추가 완료");
+    const peerStream = event.streams;
+    console.log(peerStream);
+    paintPeerFace(peerStream, remoteSocketId, nickname);
+  }
+
+  async function paintPeerFace(peerStream, remoteSocketId, nickname) {
     try {
       console.log("paintPeerface 함수 실행");
-      console.log(data);
-      // for (let i=0; i<userObjArr.length; i++){
-      //   addVideoStream(userVideo[i].current, data);
-      //   videoGrid.current.append(userVideo[i].current);
-      // }
+      console.log(peerStream);
+      const videoGrid = document.querySelector("#video-grid");
+      const peervideo = document.createElement("video");
+      peervideo.autoPlay = true;
+      peervideo.playsInline = true;
+      peervideo.width = "400";
+      peervideo.height = "400";
+      peervideo.srcobject = peerStream;
+
+      videoGrid.appendChild(peervideo);
     } catch (error) {
       console.log(error);
     }
@@ -338,6 +348,7 @@ const Videoplayer = (props) => {
       <div ref={call}>
         <div ref={videoGrid} id="video-grid">
           <video ref={myVideo} autoPlay playsInline id="myvideo"></video>
+          <video ref={peerVideo} autoPlay playsInline id="peervideo"></video>
         </div>
         <div id="controller">
           <button ref={muteBtn} onClick={handleMuteClick}>
