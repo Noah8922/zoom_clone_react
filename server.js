@@ -1,39 +1,52 @@
 import http from "http";
 import { Server } from "socket.io";
+import { instrument } from "@socket.io/admin-ui";
 import express from "express";
 import cors from "cors";
 
 const app = express();
 
 app.use(cors());
-app.get("/", (req, res) => {
-  res.send("Running");
-});
+app.set("view engine", "pug");
+app.set("views", __dirname + "/views");
+app.use("/public", express.static(__dirname + "/public"));
+app.get("/", (_, res) => res.render("home"));
+app.get("/*", (_, res) => res.redirect("/")); //  다른 주소로 접속시 redirect
 
 const httpServer = http.createServer(app);
 const wsServer = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: ["http://admin.socket.io"],
     credentials: true,
   },
 });
+instrument(wsServer, {
+  auth: false,
+});
 
-// const PORT = process.env.PORT || 5000;
-
-let roomObjArr = [];
-
+// 방 목록
+let roomObjArr = [
+  // {
+  // 	roomName,
+  // 	currentNum,
+  // 	users: [
+  // 		{
+  // 			socketId,
+  // 			nickname,
+  // 		},
+  // 	],
+  // },
+];
 const MAXIMUM = 5;
 
 wsServer.on("connection", (socket) => {
   let myRoomName = null;
   let myNickname = null;
 
-  socket.on("joinRoom", async (roomName, nickname) => {
-    console.log("server 연결 완료");
-    console.log("최근 들어온 사람 socketId", socket.id);
-    console.log("joinRomm 받음 server 2");
+  socket.on("join_room", (roomName, nickname) => {
     myRoomName = roomName;
     myNickname = nickname;
+
     let isRoomExist = false;
     let targetRoomObj = null;
 
@@ -42,14 +55,12 @@ wsServer.on("connection", (socket) => {
       if (roomObjArr[i].roomName === roomName) {
         // 정원 초과
         if (roomObjArr[i].currentNum >= MAXIMUM) {
-          socket.emit("rejectJoin");
-          console.log("rejectJoin 보냄 server");
+          socket.emit("reject_join");
           return;
         }
         // 방이 존재하면 그 방으로 들어감
         isRoomExist = true;
         targetRoomObj = roomObjArr[i];
-        console.log("새로운 인원 추가되었음");
         break;
       }
     }
@@ -61,45 +72,30 @@ wsServer.on("connection", (socket) => {
         currentNum: 0,
         users: [],
       };
-      console.log("방을 처음으로 만든 브라우저임");
       roomObjArr.push(targetRoomObj);
     }
+
     // 어떠한 경우든 방에 참여
     targetRoomObj.users.push({
       socketId: socket.id,
       nickname,
     });
-
     targetRoomObj.currentNum++;
+
     socket.join(roomName);
-    socket.emit("acceptJoin", targetRoomObj.users, roomName, socket.id);
-    console.log("acceptJoin 보냄 server 3");
-    console.log("최근 들어온사람 socketId", socket.id);
+    socket.emit("accept_join", targetRoomObj.users);
   });
 
-  socket.on("request", (roomName, userObjArr, NewsocketId) => {
-    console.log("request 받지만 server 9");
-    socket.to(roomName).emit("welcome", userObjArr, NewsocketId, roomName);
-    console.log("새로운 인원이 추가 될 때 Welcome이 실행 됨 ");
+  socket.on("ice", (ice, remoteSocketId) => {
+    socket.to(remoteSocketId).emit("ice", ice, socket.id);
   });
 
-  socket.on("offer", async (offer, remotesokcetId, NewsocketId, roomName) => {
-    console.log("offer를 받음");
-    console.log("방만든 사람 socktId", remotesokcetId);
-    console.log("가장 마지막에 들어온 사람", NewsocketId);
-    socket.to(roomName).emit("offer", offer, NewsocketId, roomName);
-    console.log("offer를 보냄");
+  socket.on("offer", (offer, remoteSocketId, localNickname) => {
+    socket.to(remoteSocketId).emit("offer", offer, socket.id, localNickname);
   });
 
-  socket.on("answer", (answer, roomName) => {
-    console.log("answer 받음 server");
-    socket.to(roomName).emit("answer", answer);
-    console.log("answer 보냄 server");
-  });
-
-  socket.on("ice", (ice, remotesokcetId, roomName) => {
-    socket.to(roomName).emit("ice", ice, socket.id, remotesokcetId);
-    console.log("IceCandidate 보냄 server");
+  socket.on("answer", (answer, remoteSocketId) => {
+    socket.to(remoteSocketId).emit("answer", answer, socket.id);
   });
 
   socket.on("disconnecting", () => {
@@ -128,5 +124,5 @@ wsServer.on("connection", (socket) => {
   });
 });
 
-const handleListen = () => console.log("Listening on http://localhost:5000");
-httpServer.listen(5000, handleListen);
+const handleListen = () => console.log("Listening on http://localhost:3000");
+httpServer.listen(3000, handleListen);
