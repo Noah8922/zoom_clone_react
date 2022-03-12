@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { io } from "socket.io-client";
-import Peer from "peerjs";
 import { history } from "../redux/configureStore";
 
 const Main = () => {
-  const socket = io("http://localhost:5000"); //Server adress
-
   const [roomName, setRoomName] = useState("");
 
   function getInRoom() {

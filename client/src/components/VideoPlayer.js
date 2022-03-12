@@ -19,13 +19,31 @@ const Videoplayer = (props) => {
   const leaveBtn = useRef();
   const cameraSelect = useRef();
   const call = useRef();
+  const numberOfusers = useRef();
+  const myvideo = useRef();
   const mystream = useRef();
-  const myVideo = useRef();
-  const peerVideo = useRef();
 
+  let nicknames = [
+    "아프리카청춘이다",
+    "벼량위의포뇨",
+    "돈들어손내놔",
+    "닮은살걀",
+    "아무리생각해도난마늘",
+    "신밧드의보험",
+    "오즈의맙소사",
+    "달려야하니",
+    "흔들린우동",
+    "축구싶냐농구있네",
+  ];
+  let nick = [];
+  let nickname;
+
+  function randomItem(a) {
+    let Arr = a[Math.floor(Math.random() * a.length)];
+    nick.push(Arr);
+  }
   let myPeerConnection;
   let myStream;
-  let nickname = "noah";
   let pcObj = {};
   let peopleInRoom = 1;
 
@@ -33,34 +51,49 @@ const Videoplayer = (props) => {
     cors: { origin: "*" },
   }); //Server adress
 
+  //페이지가 마운트되고 "join_room" Event 함수 실행 1
   useEffect(() => {
-    //페이지가 마운트된 후에 "join_room" Event 발생 1
+    const name = document.getElementById("name");
+    randomItem(nicknames);
+    console.log(nick);
+    nickname = nick[0];
+    console.log(nickname);
+    name.innerText = `닉네임 : ${nick[0]}`;
     socket.emit("join_room", roomName, nickname);
+    console.log(nickname);
   }, []);
-  socket.on("accept_join", async (userObjArr) => {
-    await getMedia();
 
+  //서버로부터 accept_join 받음
+  socket.on("accept_join", async (userObjArr) => {
+    //카메라, 마이크 가져오기
+    await getMedia();
     const length = userObjArr.length;
+
+    const title = document.getElementById("numberOfusers");
+    title.innerText = `현재인원 : ${peopleInRoom}`;
 
     if (length === 1) {
       return;
     }
 
     for (let i = 0; i < length - 1; i++) {
+      //가장 최근 들어온 브라우저 제외
       try {
         const newPC = makeConnection(
+          //RTCPeerconnection 생성
           userObjArr[i].socketId,
           userObjArr[i].nickname
         );
         const offer = await newPC.createOffer(); // 각 연결들에 대해 offer를 생성
         await newPC.setLocalDescription(offer);
-        socket.emit("offer", offer, userObjArr[i].socketId, nickname); // offer를 받을 socket id와 보내는 사람의 닉네임
+        socket.emit("offer", offer, userObjArr[i].socketId, nickname); // offer를 보내는 사람의 socket id와 닉네임
       } catch (error) {
         console.log(error);
       }
     }
   });
 
+  //사용자의 stream 가져오는 함수
   async function getMedia(deviceId) {
     const initialConstraints = {
       audio: true,
@@ -74,8 +107,10 @@ const Videoplayer = (props) => {
       myStream = await navigator.mediaDevices.getUserMedia(
         deviceId ? cameraConstraints : initialConstraints
       );
-      addVideoStream(myVideo.current, myStream);
-      videoGrid.current.append(myVideo.current);
+      addVideoStream(myvideo.current, myStream);
+      mystream.current.append(myvideo.current);
+      videoGrid.current.append(mystream.current);
+      myvideo.current.muted = true;
       setAduio(myStream.getAudioTracks());
       setVideo(myStream.getVideoTracks());
       if (!deviceId) {
@@ -99,7 +134,6 @@ const Videoplayer = (props) => {
   }
 
   function makeConnection(remoteSocketId, remoteNickname) {
-    // myPeerConnection = new RTCPeerConnection();
     myPeerConnection = new RTCPeerConnection({
       iceServers: [
         {
@@ -114,13 +148,13 @@ const Videoplayer = (props) => {
       ],
     });
 
+    //2명 이상일 때만 실행 됨.
+
     myPeerConnection.addEventListener("icecandidate", (event) => {
       handleIce(event, remoteSocketId);
     });
 
     myPeerConnection.addEventListener("track", (data) => {
-      // console.log(event);
-      // const data = event.streams[0];
       handleAddStream(data, remoteSocketId, remoteNickname);
     });
 
@@ -133,12 +167,15 @@ const Videoplayer = (props) => {
 
     peopleInRoom++;
 
+    const title = document.getElementById("numberOfusers");
+    title.innerText = `현재인원 : ${peopleInRoom}`;
+
     return myPeerConnection;
   }
 
-  function handleAddStream(event, remoteSocketId, remoteNickname) {
-    const peerStream = event.streams[0];
-    if (event.track.kind === "video") {
+  function handleAddStream(data, remoteSocketId, remoteNickname) {
+    const peerStream = data.streams[0];
+    if (data.track.kind === "video") {
       paintPeerFace(peerStream, remoteSocketId, remoteNickname);
     }
   }
@@ -147,16 +184,22 @@ const Videoplayer = (props) => {
     try {
       const videoGrid = document.querySelector("#video-grid");
       const video = document.createElement("video");
-      video.id = "video1";
+      const peername = document.createElement("h3");
+      const div = document.createElement("div");
+      div.id = id;
       video.autoplay = true;
       video.playsInline = true;
       video.width = "400";
       video.height = "400";
-      // const peerFace = document.getElementById("video1");
       video.srcObject = peerStream;
 
-      // div.appendChild(video);
-      videoGrid.appendChild(video);
+      console.log(remoteNickname);
+      peername.innerText = `닉네임 : ${remoteNickname}`;
+      peername.style.color = "white";
+
+      div.appendChild(peername);
+      div.appendChild(video);
+      videoGrid.appendChild(div);
     } catch (error) {
       console.log(error);
     }
@@ -169,7 +212,6 @@ const Videoplayer = (props) => {
       const answer = await newPC.createAnswer();
       await newPC.setLocalDescription(answer);
       socket.emit("answer", answer, remoteSocketId);
-      console.log(remoteSocketId);
     } catch (error) {
       console.log(error);
     }
@@ -241,31 +283,19 @@ const Videoplayer = (props) => {
       console.log(error);
     }
   }
+
   //나가기를 누르면 나한테 벌어지는 일
   function LeaveRoom() {
     socket.disconnect();
-
-    console.log("방을 나갈때 나한테 일어나는 일");
     history.replace("/");
     window.location.reload();
-
-    pcObj = {};
-    peopleInRoom = 1;
-    nickname = "";
-
-    // html 요소만 숨기는 것이 아니라 싹 지워지도록
-    myStream.getTracks().forEach((track) => track.stop());
-
-    const myvideo = document.getElementById("#myvideo");
-    myvideo.srcObject = null;
-    clearAllVideos();
   }
 
   function clearAllVideos() {
     const streams = document.querySelector("#video-grid");
-    const streamArr = streams.querySelectorAll("video");
+    const streamArr = streams.querySelectorAll("div");
     streamArr.forEach((streamElement) => {
-      if (streamElement.id !== "myStream") {
+      if (streamElement.id !== "mystream") {
         streams.removeChild(streamElement);
       }
     });
@@ -273,12 +303,14 @@ const Videoplayer = (props) => {
 
   //내가 나갈때 다른 사람들에게 일어나는 일
   socket.on("leave_room", (leavedSocketId) => {
-    console.log(leavedSocketId);
     removeVideo(leavedSocketId);
+    peopleInRoom--;
+    const title = document.getElementById("numberOfusers");
+    title.innerText = `현재인원 : ${peopleInRoom}`;
   });
 
   function removeVideo(leavedSocketId) {
-    const streams = document.querySelector("#streams");
+    const streams = document.querySelector("#video-grid");
     const streamArr = streams.querySelectorAll("div");
     streamArr.forEach((streamElement) => {
       if (streamElement.id === leavedSocketId) {
@@ -290,8 +322,13 @@ const Videoplayer = (props) => {
   return (
     <>
       <div ref={call}>
+        <h1 ref={numberOfusers} id="numberOfusers" style={{ color: "white" }} />
+
         <div ref={videoGrid} id="video-grid">
-          <video ref={myVideo} autoPlay playsInline id="myvideo"></video>
+          <div ref={mystream} id="mystream">
+            <video ref={myvideo} autoPlay playsInline id="myvideo"></video>
+            <h3 id="name" style={{ color: "white" }}></h3>
+          </div>
         </div>
         <div id="controller">
           <button ref={muteBtn} onClick={handleMuteClick}>
