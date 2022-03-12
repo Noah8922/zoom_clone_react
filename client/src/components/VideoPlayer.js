@@ -319,6 +319,8 @@ const Videoplayer = (props) => {
     });
   }
 
+  //이모티콘 띄우기
+
   return (
     <>
       <div ref={call}>
@@ -330,7 +332,11 @@ const Videoplayer = (props) => {
             <h3 id="name" style={{ color: "white" }}></h3>
           </div>
         </div>
+        <div>
+          <h2 style={{ color: "white" }}>여기는 이모지 뜨는 곳</h2>
+        </div>
         <div id="controller">
+          <button>Cheer UP!</button>
           <button ref={muteBtn} onClick={handleMuteClick}>
             mute
           </button>
