@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import { history } from "../redux/configureStore";
-import cors from "cors";
 
 //Style
 import styled from "styled-components";
@@ -55,12 +54,9 @@ const Videoplayer = (props) => {
   useEffect(() => {
     const name = document.getElementById("name");
     randomItem(nicknames);
-    console.log(nick);
     nickname = nick[0];
-    console.log(nickname);
     name.innerText = `닉네임 : ${nick[0]}`;
     socket.emit("join_room", roomName, nickname);
-    console.log(nickname);
   }, []);
 
   //서버로부터 accept_join 받음
@@ -193,7 +189,6 @@ const Videoplayer = (props) => {
       video.height = "400";
       video.srcObject = peerStream;
 
-      console.log(remoteNickname);
       peername.innerText = `닉네임 : ${remoteNickname}`;
       peername.style.color = "white";
 
@@ -320,6 +315,30 @@ const Videoplayer = (props) => {
   }
 
   //이모티콘 띄우기
+  // 여긴 나한테 띄우는 부분
+  function showEmoji() {
+    const myArea = document.querySelector("#mystream");
+    const emojiBox = document.createElement("h1");
+    emojiBox.innerText = "👍";
+    myArea.appendChild(emojiBox);
+    setTimeout(() => {
+      emojiBox.hidden = true;
+    }, 2000);
+    socket.emit("emoji");
+    console.log("여기까지 가는 건가");
+  }
+
+  // 여긴 다른 사람들에게 띄우는 부분
+  socket.on("emoji", (remoteSocketId) => {
+    console.log(remoteSocketId);
+    const remoteDiv = document.querySelector(`#${remoteSocketId}`);
+    const emojiBox = document.createElement("button");
+    emojiBox.innerText = "👍";
+    remoteDiv.appendChild(emojiBox);
+    setTimeout(() => {
+      emojiBox.hidden = true;
+    }, 2000);
+  });
 
   return (
     <>
@@ -329,14 +348,14 @@ const Videoplayer = (props) => {
         <div ref={videoGrid} id="video-grid">
           <div ref={mystream} id="mystream">
             <video ref={myvideo} autoPlay playsInline id="myvideo"></video>
-            <h3 id="name" style={{ color: "white" }}></h3>
+            <h3 id="name" style={{ color: "white", margin: "auto" }}></h3>
           </div>
         </div>
-        <div>
-          <h2 style={{ color: "white" }}>여기는 이모지 뜨는 곳</h2>
-        </div>
+
         <div id="controller">
-          <button>Cheer UP!</button>
+          <button onClick={showEmoji} id="showEmoji">
+            Cheer UP!
+          </button>
           <button ref={muteBtn} onClick={handleMuteClick}>
             mute
           </button>
