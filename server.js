@@ -106,7 +106,7 @@ wsServer.on("connection", (socket) => {
   });
 
   socket.on("disconnecting", () => {
-    socket.to(myRoomName).emit("leave_room", socket.id);
+    socket.to(myRoomName).emit("leave_room", socket.id, roomObjArr);
 
     let isRoomEmpty = false;
     // 나가면서 방의 정보를 업데이트 해주고 나가기

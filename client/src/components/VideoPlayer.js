@@ -49,7 +49,7 @@ const Videoplayer = (props) => {
 
   //http://localhost:5000
   //https://test.kimjeongho-server.com
-  const socket = io("http://localhost:5000", {
+  const socket = io("https://test.kimjeongho-server.com", {
     cors: { origin: "*" },
   });
 
@@ -67,7 +67,6 @@ const Videoplayer = (props) => {
   socket.on("accept_join", async (userObjArr, socketIdformserver) => {
     //카메라, 마이크 가져오기
     await getMedia();
-    console.log(userObjArr);
     setSocketID(socketIdformserver);
     const length = userObjArr.length;
 
@@ -109,7 +108,6 @@ const Videoplayer = (props) => {
       myStream = await navigator.mediaDevices.getUserMedia(
         deviceId ? cameraConstraints : initialConstraints
       );
-      console.log(myStream);
       addVideoStream(myvideo.current, myStream);
       mystream.current.append(myvideo.current);
       videoGrid.current.append(mystream.current);
@@ -304,9 +302,11 @@ const Videoplayer = (props) => {
   // }
 
   //내가 나갈때 다른 사람들에게 일어나는 일
-  socket.on("leave_room", (leavedSocketId) => {
+  socket.on("leave_room", (leavedSocketId, roomObjArrFromServer) => {
+    let numberInRoom = roomObjArrFromServer[0].users.length - 1;
     removeVideo(leavedSocketId);
-    peopleInRoom--;
+    numberInRoom--;
+    console.log(numberInRoom);
     const title = document.getElementById("numberOfusers");
     title.innerText = `현재인원 : ${peopleInRoom}`;
   });
@@ -337,11 +337,8 @@ const Videoplayer = (props) => {
 
   // 여긴 다른 사람들에게 띄우는 부분
   socket.on("emoji", (remoteSocketId) => {
-    console.log(remoteSocketId);
     const remoteDiv = document.getElementById(`${remoteSocketId}`);
-    console.log(remoteDiv);
     const emojiBox = document.createElement("h1");
-    console.log(emojiBox);
     emojiBox.innerText = "👍";
     if (remoteDiv) {
       remoteDiv.appendChild(emojiBox);
