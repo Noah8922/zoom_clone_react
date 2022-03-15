@@ -1,6 +1,6 @@
 import http from "http";
 import { Server } from "socket.io";
-// import { instrument } from "@socket.io/admin-ui";
+import { instrument } from "@socket.io/admin-ui";
 import express from "express";
 import cors from "cors";
 
@@ -20,9 +20,9 @@ const wsServer = new Server(httpServer, {
     credentials: true,
   },
 });
-// instrument(wsServer, {
-//   auth: false,
-// });
+instrument(wsServer, {
+  auth: false,
+});
 
 // 젠체 방 배열
 let roomObjArr = [
@@ -39,20 +39,19 @@ let roomObjArr = [
 ];
 const MAXIMUM = 5;
 
+let socketID;
+
 wsServer.on("connection", (socket) => {
   let myRoomName = null;
   let myNickname = null;
 
-  // 클라이언트로 부터 join_room 받음
   socket.on("join_room", (roomName, nickname) => {
-    //방이름과 닉네임 받아옴
     myRoomName = roomName;
     myNickname = nickname;
 
-    let isRoomExist = false; // 방이 있는가
-    let targetRoomObj = null; //들어가고자 하는 방
+    let isRoomExist = false;
+    let targetRoomObj = null;
 
-    //전체방 목록 돌면서
     for (let i = 0; i < roomObjArr.length; i++) {
       // 같은 이름의 방 만들 수 없음
       if (roomObjArr[i].roomName === roomName) {
@@ -83,10 +82,11 @@ wsServer.on("connection", (socket) => {
       socketId: socket.id,
       nickname,
     });
+    socketID = socket.id;
     targetRoomObj.currentNum++;
 
-    socket.join(roomName); //방이름으로 join하고
-    socket.emit("accept_join", targetRoomObj.users); //accept_join 함수 보냄 2
+    socket.join(roomName);
+    socket.emit("accept_join", targetRoomObj.users, socket.id);
   });
 
   socket.on("ice", (ice, remoteSocketId) => {
@@ -94,8 +94,6 @@ wsServer.on("connection", (socket) => {
   });
 
   socket.on("offer", (offer, remoteSocketId, localNickname) => {
-    //remotesocketId = 이전에 방에 있던 사람
-    //socket.id = 제일 최근에 들어온 사람
     socket.to(remoteSocketId).emit("offer", offer, socket.id, localNickname);
   });
 
@@ -103,10 +101,12 @@ wsServer.on("connection", (socket) => {
     socket.to(remoteSocketId).emit("answer", answer, socket.id);
   });
 
+  socket.on("emoji", (roomNameFromClient, socketIdFromClient) => {
+    socket.to(roomNameFromClient).emit("emoji", socketIdFromClient);
+  });
+
   socket.on("disconnecting", () => {
-    console.log("여기서 나타난다1111.");
     socket.to(myRoomName).emit("leave_room", socket.id);
-    console.log("여기서도 보내주는 걸까");
 
     let isRoomEmpty = false;
     // 나가면서 방의 정보를 업데이트 해주고 나가기
@@ -130,6 +130,5 @@ wsServer.on("connection", (socket) => {
     }
   });
 });
-
 const handleListen = () => console.log("Listening on http://localhost:5000");
 httpServer.listen(5000, handleListen);

@@ -11,6 +11,7 @@ const Videoplayer = (props) => {
   const [cameraOff, setCameraOff] = useState(false);
   const [Audio, setAduio] = useState([]);
   const [Video, setVideo] = useState([]);
+  const [socketID, setSocketID] = useState("");
 
   const videoGrid = useRef();
   const muteBtn = useRef();
@@ -46,12 +47,15 @@ const Videoplayer = (props) => {
   let pcObj = {};
   let peopleInRoom = 1;
 
-  const socket = io("https://test.kimjeongho-server.com", {
+  //http://localhost:5000
+  //https://test.kimjeongho-server.com
+  const socket = io("http://localhost:5000", {
     cors: { origin: "*" },
-  }); //Server adress
+  });
 
   //페이지가 마운트되고 "join_room" Event 함수 실행 1
   useEffect(() => {
+    console.log("처음 실행");
     const name = document.getElementById("name");
     randomItem(nicknames);
     nickname = nick[0];
@@ -60,9 +64,11 @@ const Videoplayer = (props) => {
   }, []);
 
   //서버로부터 accept_join 받음
-  socket.on("accept_join", async (userObjArr) => {
+  socket.on("accept_join", async (userObjArr, socketIdformserver) => {
     //카메라, 마이크 가져오기
     await getMedia();
+    console.log(userObjArr);
+    setSocketID(socketIdformserver);
     const length = userObjArr.length;
 
     const title = document.getElementById("numberOfusers");
@@ -103,6 +109,7 @@ const Videoplayer = (props) => {
       myStream = await navigator.mediaDevices.getUserMedia(
         deviceId ? cameraConstraints : initialConstraints
       );
+      console.log(myStream);
       addVideoStream(myvideo.current, myStream);
       mystream.current.append(myvideo.current);
       videoGrid.current.append(mystream.current);
@@ -286,15 +293,15 @@ const Videoplayer = (props) => {
     window.location.reload();
   }
 
-  function clearAllVideos() {
-    const streams = document.querySelector("#video-grid");
-    const streamArr = streams.querySelectorAll("div");
-    streamArr.forEach((streamElement) => {
-      if (streamElement.id !== "mystream") {
-        streams.removeChild(streamElement);
-      }
-    });
-  }
+  // function clearAllVideos() {
+  //   const streams = document.querySelector("#video-grid");
+  //   const streamArr = streams.querySelectorAll("div");
+  //   streamArr.forEach((streamElement) => {
+  //     if (streamElement.id !== "mystream") {
+  //       streams.removeChild(streamElement);
+  //     }
+  //   });
+  // }
 
   //내가 나갈때 다른 사람들에게 일어나는 일
   socket.on("leave_room", (leavedSocketId) => {
@@ -324,20 +331,24 @@ const Videoplayer = (props) => {
     setTimeout(() => {
       emojiBox.hidden = true;
     }, 2000);
-    socket.emit("emoji");
-    console.log("여기까지 가는 건가");
+    console.log(roomName, socketID);
+    socket.emit("emoji", roomName, socketID);
   }
 
   // 여긴 다른 사람들에게 띄우는 부분
   socket.on("emoji", (remoteSocketId) => {
     console.log(remoteSocketId);
-    const remoteDiv = document.querySelector(`#${remoteSocketId}`);
-    const emojiBox = document.createElement("button");
+    const remoteDiv = document.getElementById(`${remoteSocketId}`);
+    console.log(remoteDiv);
+    const emojiBox = document.createElement("h1");
+    console.log(emojiBox);
     emojiBox.innerText = "👍";
-    remoteDiv.appendChild(emojiBox);
-    setTimeout(() => {
-      emojiBox.hidden = true;
-    }, 2000);
+    if (remoteDiv) {
+      remoteDiv.appendChild(emojiBox);
+      setTimeout(() => {
+        emojiBox.hidden = true;
+      }, 2000);
+    }
   });
 
   return (
